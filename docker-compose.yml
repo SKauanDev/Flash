@@ -2,39 +2,42 @@ services:
   api:
     build: .
     environment:
-      DATABASE_URL: postgresql+psycopg://flash:flash@postgres:5432/flash
+      DATABASE_URL: mysql+pymysql://flash:flash@mysql:3306/flash?charset=utf8mb4
       REDIS_URL: redis://redis:6379/0
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-5.6}
       WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-change-me}
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
-      LLM_API_KEY: ${LLM_API_KEY:-}
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
+      - mysql
       - redis
 
   worker:
     build: .
     command: python -m app.scheduler.worker
     environment:
-      DATABASE_URL: postgresql+psycopg://flash:flash@postgres:5432/flash
+      DATABASE_URL: mysql+pymysql://flash:flash@mysql:3306/flash?charset=utf8mb4
       REDIS_URL: redis://redis:6379/0
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
     depends_on:
-      - postgres
+      - mysql
 
-  postgres:
-    image: postgres:17
+  mysql:
+    image: mysql:8.4
     environment:
-      POSTGRES_DB: flash
-      POSTGRES_USER: flash
-      POSTGRES_PASSWORD: flash
+      MYSQL_DATABASE: flash
+      MYSQL_USER: flash
+      MYSQL_PASSWORD: flash
+      MYSQL_ROOT_PASSWORD: root
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mysql_data:/var/lib/mysql
 
   redis:
     image: redis:7-alpine
@@ -42,4 +45,4 @@ services:
       - "6379:6379"
 
 volumes:
-  postgres_data:
+  mysql_data:

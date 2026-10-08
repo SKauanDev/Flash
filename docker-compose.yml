@@ -1,4 +1,30 @@
 services:
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+psycopg://flash:flash@postgres:5432/flash
+      REDIS_URL: redis://redis:6379/0
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-change-me}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+
+  worker:
+    build: .
+    command: python -m app.scheduler.worker
+    environment:
+      DATABASE_URL: postgresql+psycopg://flash:flash@postgres:5432/flash
+      REDIS_URL: redis://redis:6379/0
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:17
     environment:

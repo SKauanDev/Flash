@@ -1,12 +1,14 @@
 import asyncio
 from datetime import datetime, timezone
 from sqlalchemy import select
+from app.db.init import init_db
 from app.db.models import User
 from app.db.session import SessionLocal
 from app.scheduler.jobs import claim_due_tasks
 from app.whatsapp.client import whatsapp_client
 
 async def scheduler_loop() -> None:
+    init_db()
     while True:
         with SessionLocal() as db:
             tasks = claim_due_tasks(db, datetime.now(timezone.utc))

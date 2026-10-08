@@ -1,6 +1,6 @@
 [project]
 name = "flash"
-version = "0.2.0"
+version = "0.2.1"
 description = "Personal AI Copilot for WhatsApp"
 requires-python = ">=3.11"
 dependencies = [
@@ -24,6 +24,10 @@ dev = [
 [build-system]
 requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+exclude = ["database*", "tests*", "scripts*"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

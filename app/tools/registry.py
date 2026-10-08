@@ -10,13 +10,16 @@ class ToolKind(StrEnum):
     SENSITIVE = "sensitive"
 
 
+ToolExecutor = Callable[..., Awaitable[dict[str, Any]]]
+
+
 @dataclass(frozen=True)
 class Tool:
     name: str
     description: str
     kind: ToolKind
     schema: dict[str, Any]
-    executor: Callable[..., Awaitable[dict[str, Any]]]
+    executor: ToolExecutor
 
 
 class ToolRegistry:
@@ -41,6 +44,10 @@ class ToolRegistry:
             }
             for tool in self._tools.values()
         ]
+
+    async def execute(self, name: str, *, context: dict[str, Any], arguments: dict[str, Any]) -> dict[str, Any]:
+        tool = self.get(name)
+        return await tool.executor(context=context, **arguments)
 
 
 registry = ToolRegistry()

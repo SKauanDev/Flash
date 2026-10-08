@@ -28,6 +28,7 @@ async def receive(payload: dict) -> dict:
                 contacts = value.get("contacts", [])
                 profile = contacts[0].get("profile", {}) if contacts else {}
                 with SessionLocal() as db:
-                    await process_text_message(db, sender, body, profile.get("name"))
-                processed += 1
+                    result = await process_text_message(db, sender, body, profile.get("name"), message.get("id"))
+                if result is not None:
+                    processed += 1
     return {"received": True, "processed": processed}

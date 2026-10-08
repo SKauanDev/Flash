@@ -2,147 +2,145 @@
 
 Personal AI Copilot via WhatsApp.
 
-## Arquitetura atual
+## Ambiente recomendado: Windows + XAMPP + MySQL
 
-WhatsApp Cloud API
--> FastAPI webhook
--> usuário + histórico
--> AgentRuntime
--> LLM com tool calling
--> ToolRegistry
--> PostgreSQL? Não: MySQL
--> scheduler worker
--> WhatsApp
+O Flash **não precisa de Docker**.
 
-## O que já está implementado
+Use:
 
-- FastAPI + Uvicorn
-- MySQL 8.4 + SQLAlchemy
-- Redis
-- LLM com tool/function calling
-- memória persistente
-- histórico de mensagens
-- tasks/lembretes persistentes
-- scheduler separado
-- webhook WhatsApp
-- envio de mensagens pela WhatsApp Cloud API
-- idempotência por ID da mensagem recebida
-- Docker Compose
-- testes com pytest
-- SQL inicial em database/001_create_schema.sql
+- Windows
+- Python 3.11+
+- XAMPP com MySQL
+- Redis local
+- WhatsApp Cloud API
+- API de LLM
 
-## Banco de dados
+## 1. Instalar dependências Python
 
-O Flash usa **MySQL 8.4**.
+Na pasta do projeto:
 
-As tabelas atuais são:
+    python -m venv .venv
+    .venv\Scripts\activate
+    python -m pip install --upgrade pip
+    pip install -e ".[dev]"
+
+O projeto configura o setuptools para incluir somente o pacote Python `app`. A pasta `database` não é um pacote Python, portanto o erro "Multiple top-level packages discovered" não deve mais ocorrer.
+
+## 2. Configurar XAMPP
+
+1. Abra o XAMPP Control Panel.
+2. Inicie **MySQL**.
+3. Confirme que o MySQL está na porta **3306**.
+4. O Apache não é necessário para executar o Flash.
+5. Redis também precisa estar disponível localmente.
+
+Se o usuário root do XAMPP não tiver senha, o script de setup já está configurado para isso.
+
+## 3. Criar o banco MySQL
+
+O SQL está em:
+
+    database/001_create_schema.sql
+
+Você pode executar pelo phpMyAdmin ou pelo script:
+
+    python scripts/setup_database.py
+
+O banco cria:
 
 - users
 - messages
 - memories
 - tasks
 
-O SQL está em:
-
-database/001_create_schema.sql
-
-Com Docker, o banco é criado automaticamente pelo serviço mysql.
-
-Para execução manual:
-
-    mysql -u root -p < database/001_create_schema.sql
-
-## Instalação
-
-Requisitos:
-
-- Python 3.11+
-- Docker e Docker Compose
-- conta WhatsApp Cloud API
-- chave de API do provedor LLM
-
-Instale as dependências:
-
-    pip install -e ".[dev]"
-
-Ou, usando o Docker:
-
-    docker compose up --build
-
-## Imports/dependências
-
-Os imports principais usados pelo projeto vêm destes pacotes:
-
-- fastapi
-- uvicorn
-- pydantic-settings
-- sqlalchemy
-- pymysql
-- redis
-- httpx
-- openai
-- pytest
-- pytest-asyncio
-- ruff
-
-Não instale psycopg/psycopg2: o banco é MySQL e o driver usado pelo SQLAlchemy é **PyMySQL**.
-
-## Variáveis de ambiente
+## 4. Configurar o ambiente
 
 Copie:
 
-    cp .env.example .env
+    copy .env.example .env
 
-Preencha:
+Configure:
 
-    DATABASE_URL=mysql+pymysql://flash:flash@localhost:3306/flash?charset=utf8mb4
-    REDIS_URL=redis://localhost:6379/0
-    LLM_API_KEY=sua-chave
+    DATABASE_URL=mysql+pymysql://flash:flash@127.0.0.1:3306/flash?charset=utf8mb4
+    REDIS_URL=redis://127.0.0.1:6379/0
+    LLM_API_KEY=sua_chave
     LLM_MODEL=gpt-5.6
-    WHATSAPP_VERIFY_TOKEN=seu-token
-    WHATSAPP_ACCESS_TOKEN=seu-token
-    WHATSAPP_PHONE_NUMBER_ID=seu-id
+    WHATSAPP_VERIFY_TOKEN=seu_token
+    WHATSAPP_ACCESS_TOKEN=seu_token
+    WHATSAPP_PHONE_NUMBER_ID=seu_id
 
 Nunca coloque chaves reais no Git.
 
-## Como o agente funciona
+## 5. Pacotes/imports usados
 
-Uma mensagem chega pelo WhatsApp:
+Principais dependências:
+
+- `fastapi` — API/webhook
+- `uvicorn` — servidor
+- `pydantic-settings` — configuração
+- `sqlalchemy` — ORM
+- `pymysql` — driver MySQL
+- `redis` — Redis
+- `httpx` — chamadas HTTP
+- `openai` — integração LLM
+- `pytest` — testes
+- `pytest-asyncio` — testes assíncronos
+- `ruff` — lint
+
+Não é necessário instalar `psycopg` ou `psycopg2`.
+
+## 6. Executar a API
+
+Com o ambiente virtual ativo:
+
+    uvicorn app.main:app --reload
+
+API:
+
+    http://127.0.0.1:8000
+
+Teste:
+
+    http://127.0.0.1:8000/health
+
+## 7. Executar o scheduler
+
+Em outro terminal, com o ambiente virtual ativo:
+
+    python scripts/run_worker.py
+
+O worker verifica tarefas vencidas e envia o lembrete pelo WhatsApp.
+
+## Arquitetura
 
     WhatsApp
-      |
-      v
-    webhook
-      |
-      v
-    MySQL: salva mensagem
-      |
-      v
+       |
+       v
+    FastAPI webhook
+       |
+       v
+    MySQL: usuário + mensagem
+       |
+       v
     AgentRuntime
-      |
-      v
-    LLM
-      |
-      +---- resposta normal
-      |
-      +---- tool call
-                |
-                v
-            backend valida/executa
-                |
-                v
-              MySQL
-                |
-                v
-          resultado para o LLM
-                |
-                v
-            resposta final
-                |
-                v
-             WhatsApp
+       |
+       v
+    LLM + tool calling
+       |
+       +---- resposta normal
+       |
+       +---- tasks.create / tasks.list
+                  |
+                  v
+                MySQL
+                  |
+                  v
+              scheduler
+                  |
+                  v
+               WhatsApp
 
-O LLM **não possui acesso direto ao banco**. Ele solicita ferramentas; o backend executa as operações.
+O LLM não acessa o banco diretamente. Ele solicita uma tool e o backend executa a operação.
 
 ## Tools atuais
 
@@ -150,51 +148,40 @@ O LLM **não possui acesso direto ao banco**. Ele solicita ferramentas; o backen
 
 Cria um lembrete persistente.
 
-Exemplo de intenção:
-
-    Me lembra amanhã às 10h de ligar para Maria.
-
 ### tasks.list
 
 Lista tarefas pendentes.
 
-Exemplo:
+## Estrutura importante
 
-    Quais são minhas tarefas?
-
-## Segurança
-
-- Não coloque secrets no código.
-- Ações destrutivas/sensíveis exigem política de confirmação.
-- O backend é responsável por validar e executar tools.
-- O LLM nunca deve afirmar que executou uma ação sem resultado real.
-- Webhooks usam o ID externo da mensagem para evitar duplicação.
-
-## Rodando localmente
-
-    docker compose up --build
-
-API:
-
-    http://localhost:8000
-
-Health check:
-
-    http://localhost:8000/health
-
-Webhook:
-
-    POST /webhooks/whatsapp
+    Flash/
+    ├── app/
+    │   ├── agent/
+    │   ├── api/
+    │   ├── db/
+    │   ├── memory/
+    │   ├── scheduler/
+    │   ├── services/
+    │   ├── tools/
+    │   └── whatsapp/
+    ├── database/
+    │   └── 001_create_schema.sql
+    ├── scripts/
+    │   ├── setup_database.py
+    │   └── run_worker.py
+    ├── tests/
+    ├── .env.example
+    └── pyproject.toml
 
 ## Próximas etapas
 
-1. confirmação explícita para ações WRITE/DESTRUCTIVE quando necessário
-2. parser robusto de datas e timezone para lembretes
-3. recorrência de tarefas
-4. calendário
-5. pesquisa na web
-6. áudio/STT
-7. e-mail
-8. documentos
-9. migrations com Alembic
-10. observabilidade, rate limiting e hardening
+1. Resolver datas relativas e timezone no `tasks.create`.
+2. Confirmação para ações WRITE/DESTRUCTIVE.
+3. Tarefas recorrentes.
+4. Calendário.
+5. Pesquisa web.
+6. Áudio/STT.
+7. E-mail.
+8. Documentos.
+9. Migrations.
+10. Observabilidade e hardening.

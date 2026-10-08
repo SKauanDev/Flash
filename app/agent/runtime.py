@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.agent.context import make_agent_context
 from app.config import settings
 from app.tools.registry import registry
+import app.tools  # noqa: F401,E402
 
 
 @dataclass
